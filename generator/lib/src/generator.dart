@@ -162,7 +162,7 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
   Field _buildDioField() => Field(
     (m) => m
       ..name = _dioVar
-      ..type = refer('Dio')
+      ..type = refer('AppHttpClientImpl')
       ..modifier = FieldModifier.final$,
   );
 
