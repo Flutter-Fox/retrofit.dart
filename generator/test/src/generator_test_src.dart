@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart' hide Headers;
 import 'package:retrofit/retrofit.dart';
 import 'package:source_gen_test/annotations.dart';
 
-import 'query.pb.dart';
+import 'result.pb.dart';
 
 class Resource<T> {}
 
@@ -1090,17 +1092,39 @@ abstract class TestQueryParamExtensionTypeWithToJsonNullable {
 
 @ShouldGenerate(
   '''
-    final _data = customObject;
+  Stream<Uint8List> downloadFile() async* {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<Uint8List>(
+      Options(
+            method: 'GET',
+            headers: _headers,
+            extra: _extra,
+            responseType: ResponseType.stream,
+          )
+          .compose(
+            _dio.options,
+            '/download',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    final _result = await _dio.fetch<ResponseBody>(_options);
+    final _value = _result.data!.stream;
+    yield* _value;
+  }
 ''',
   contains: true,
-  expectedLogItems: [
-    "CustomObject must provide a `toJson()` method which return a Map.\nIt is programmer's responsibility to make sure the CustomObject is properly serialized",
-  ],
+  expectedLogItems: ['ResponseType  :  1'],
 )
-@RestApi(baseUrl: 'https://httpbin.org/')
-abstract class TestCustomObjectBody {
-  @POST('/custom-object')
-  Future<String> createCustomObject(@Body() CustomObject customObject);
+@RestApi()
+abstract class TestResponseTypeStream {
+  @GET('/download')
+  @DioResponseType(ResponseType.stream)
+  Stream<Uint8List> downloadFile();
 }
 
 @ShouldGenerate('''
@@ -2673,7 +2697,7 @@ abstract class CombineBaseUrls {
           .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
     );
     final _result = await _dio.fetch<List<int>>(_options);
-    final _value = await compute(Result.fromBuffer, _result.data!);
+    final _value = Result.fromBuffer(_result.data!);
 ''', contains: true)
 @RestApi()
 abstract class ProtoSupportParserJsonSerializable {
@@ -2705,7 +2729,7 @@ abstract class ProtoSupportParserJsonSerializable {
           .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
     );
     final _result = await _dio.fetch<List<int>>(_options);
-    final _value = await compute(Result.fromBuffer, _result.data!);
+    final _value = Result.fromBuffer(_result.data!);
 ''', contains: true)
 @RestApi(parser: Parser.DartJsonMapper)
 abstract class ProtoSupportParserDartJsonMapper {
@@ -2737,7 +2761,7 @@ abstract class ProtoSupportParserDartJsonMapper {
           .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
     );
     final _result = await _dio.fetch<List<int>>(_options);
-    final _value = await compute(Result.fromBuffer, _result.data!);
+    final _value = Result.fromBuffer(_result.data!);
 ''', contains: true)
 @RestApi(parser: Parser.MapSerializable)
 abstract class ProtoSupportParserMapSerializable {
@@ -2769,7 +2793,7 @@ abstract class ProtoSupportParserMapSerializable {
           .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
     );
     final _result = await _dio.fetch<List<int>>(_options);
-    final _value = await compute(Result.fromBuffer, _result.data!);
+    final _value = Result.fromBuffer(_result.data!);
 ''', contains: true)
 @RestApi(parser: Parser.FlutterCompute)
 abstract class ProtoSupportParserFlutterCompute {
@@ -3179,4 +3203,49 @@ abstract class TestBareTypeParameter {
 abstract class TestBareTypeParameterNullable {
   @GET('/test')
   Future<T?> getNullable<T>();
+}
+
+// Tests for ResponseType.stream with Stream<Uint8List> and Stream<String>
+
+@ShouldGenerate(
+  '''
+    final _result = await _dio.fetch<ResponseBody>(_options);
+    final _value = _result.data!.stream.map(utf8.decode);
+    yield* _value;
+''',
+  contains: true,
+  expectedLogItems: [
+    'ResponseType  :  1',
+    '\x1B[33mMethod getServerEvents returns Stream<String> and uses utf8.decode. Ensure your API class file imports dart:convert: import \'dart:convert\';\x1B[0m',
+  ],
+)
+@RestApi()
+abstract class TestResponseTypeStreamString {
+  @GET('/events')
+  @DioResponseType(ResponseType.stream)
+  Stream<String> getServerEvents();
+}
+
+@ShouldThrow(
+  'When using @DioResponseType(ResponseType.stream), the return type must be Stream<Uint8List> or Stream<String>. Got: Future<String>',
+  element: false,
+  expectedLogItems: ['ResponseType  :  1'],
+)
+@RestApi()
+abstract class TestResponseTypeStreamInvalidReturnType {
+  @GET('/download')
+  @DioResponseType(ResponseType.stream)
+  Future<String> downloadFile();
+}
+
+@ShouldThrow(
+  'When using @DioResponseType(ResponseType.stream), the return type must be Stream<Uint8List> or Stream<String>. Got: Stream<int>',
+  element: false,
+  expectedLogItems: ['ResponseType  :  1'],
+)
+@RestApi()
+abstract class TestResponseTypeStreamInvalidReturnTypeStreamInt {
+  @GET('/download')
+  @DioResponseType(ResponseType.stream)
+  Stream<int> downloadFile();
 }
